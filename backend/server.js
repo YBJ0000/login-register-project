@@ -6,6 +6,9 @@ const app = express();
 const PORT = 4000;
 const DB_URL = "http://localhost:5001/users"; // json-server 的地址
 
+const bcrypt = require("bcryptjs"); // 引入 bcryptjs
+const SALT_ROUNDS = 10; // 定义加密强度
+
 app.use(cors());
 app.use(express.json()); // 解析 JSON 请求体
 
@@ -25,8 +28,11 @@ app.post("/register", async (req, res) => {
             return res.status(400).json({ message: "用户名已被注册" });
         }
 
-        // 创建新用户
-        const newUser = { id: Date.now(), username, password };
+        // 1️⃣ 生成加密密码
+        const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+
+        // 2️⃣ 创建新用户（存储加密密码）
+        const newUser = { id: Date.now(), username, password: hashedPassword };
         await axios.post(DB_URL, newUser);
 
         res.status(201).json({ message: "注册成功", user: newUser });
@@ -41,13 +47,19 @@ app.post("/login", async (req, res) => {
 
     try {
         const { data: users } = await axios.get(DB_URL);
-        const user = users.find(u => u.username === username && u.password === password);
+        const user = users.find(u => u.username === username);
 
-        if (user) {
-            res.json({ message: "登录成功", user });
-        } else {
-            res.status(401).json({ message: "用户名或密码错误" });
+        if (!user) {
+            return res.status(401).json({ message: "用户名或密码错误" });
         }
+
+        // 1️⃣ 验证加密密码
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(401).json({ message: "用户名或密码错误" });
+        }
+
+        res.json({ message: "登录成功", user: { id: user.id, username: user.username } });
     } catch (error) {
         res.status(500).json({ message: "服务器错误", error: error.message });
     }
