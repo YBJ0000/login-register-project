@@ -1,0 +1,8 @@
+# 忽略 node_modules
+node_modules/
+dist/
+.vite/
+.DS_Store
+
+# 忽略 log 和临时文件
+*.log
